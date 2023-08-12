@@ -58,7 +58,7 @@ fun ContactScreen() {
 
     val contactsRepo = ContactRepository(provideRealm())
     val contacts = contactsRepo.getContacts()
-        .collectAsState(initial = emptyList())
+        .collectAsState(initial = contactsRepo.fetchInitialList())
 
     val scope = rememberCoroutineScope()
 
@@ -67,6 +67,8 @@ fun ContactScreen() {
             null
         )
     }
+
+    Log.d("test", "$selectedContact")
 
     ContactScreenLayout(
         contacts.value,
@@ -96,6 +98,8 @@ private fun ContactScreenLayout(
     onDelete: (ObjectId) -> Unit,
     onSelect: (Contact) -> Unit
 ) {
+
+    Log.d("test", "$selectedContact")
 
     Scaffold(
         floatingActionButton = {
@@ -154,6 +158,7 @@ private fun ContactScreenLayout(
             Spacer(modifier = Modifier.height(20.dp))
 
             if (selectedContact != null) {
+                Log.d("test", "$selectedContact")
                 ContactFields(
                     contact = selectedContact,
                     onValueChanged = {
@@ -174,18 +179,19 @@ fun ContactFields(
     onSave: (Contact) -> Unit
 ) {
 
-    val updatableContact = Contact().apply {
-        _id = contact._id
-        address = Address().apply {
-            cityName = contact.address?.cityName ?: ""
+    val updatableContact =
+        Contact().apply {
+            _id = contact._id
+            address = Address().apply {
+                cityName = contact.address?.cityName ?: ""
+            }
+            contactMethod = ContactMethod().apply {
+                methodValue = contact.contactMethod?.methodValue ?: ""
+                methodType = contact.contactMethod?.methodType ?: ContactType.EMAIL
+            }
+            firstName = contact.firstName
+            lastName = contact.lastName
         }
-        contactMethod = ContactMethod().apply {
-            methodValue = contact.contactMethod?.methodValue ?: ""
-            methodType = contact.contactMethod?.methodType ?: ContactType.EMAIL
-        }
-        firstName = contact.firstName
-        lastName = contact.lastName
-    }
 
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -235,8 +241,10 @@ fun ContactFields(
         val lastModified = SimpleDateFormat("MM/dd/yy hh:mm a", Locale.getDefault())
             .format(Date(contact.timestamp.epochSeconds * 1000)).uppercase()
 
-        Text(text = "Last Modified: $lastModified",
-            style = MaterialTheme.typography.labelMedium)
+        Text(
+            text = "Last Modified: $lastModified",
+            style = MaterialTheme.typography.labelMedium
+        )
 
         Spacer(modifier = Modifier.height(6.dp))
 

@@ -71,6 +71,6 @@ dependencies {
 
     implementation("io.realm.kotlin:library-base:1.10.0")
     implementation("io.realm.kotlin:library-sync:1.10.0") // If using Device Sync
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0") // If using coroutines with the SDK
+    //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0") // If using coroutines with the SDK
 
 }
