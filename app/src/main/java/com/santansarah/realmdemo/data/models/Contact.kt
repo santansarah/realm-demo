@@ -29,8 +29,8 @@ class Address(): RealmObject {
 
 class ContactMethod: RealmObject {
     var methodValue: String = ""
-    var methodType: ContactType
+    var methodType: ContactType // this is not persisted in Realm; no backing field or ignore
         get() { return ContactType.valueOf(methodTypeDesc) }
         set(newMethodType) { methodTypeDesc = newMethodType.name }
-    private var methodTypeDesc: String = ContactType.EMAIL.name
+    private var methodTypeDesc: String = ContactType.EMAIL.name // this is what's stored in Realm
 }

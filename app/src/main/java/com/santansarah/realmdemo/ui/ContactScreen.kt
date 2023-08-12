@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
@@ -20,10 +21,12 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -44,6 +47,11 @@ import com.santansarah.realmdemo.data.models.ContactMethod
 import com.santansarah.realmdemo.data.models.ContactType
 import com.santansarah.realmdemo.data.provideRealm
 import kotlinx.coroutines.launch
+import org.mongodb.kbson.ObjectId
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.reflect.KSuspendFunction1
 
 @Composable
 fun ContactScreen() {
@@ -52,67 +60,107 @@ fun ContactScreen() {
     val contacts = contactsRepo.getContacts()
         .collectAsState(initial = emptyList())
 
-    //Log.d("test", "got here...")
+    val scope = rememberCoroutineScope()
 
-    // using this b/c i don't have a viewmodel
-    var selectedContact by remember {
+    var selectedContact: Contact? by remember {
         mutableStateOf(
-            Contact().apply {
-                address = Address()
-                contactMethod = ContactMethod()
-            }
+            null
         )
     }
 
-    val scope = rememberCoroutineScope()
+    ContactScreenLayout(
+        contacts.value,
+        selectedContact,
+        {
+            scope.launch {
+                contactsRepo.saveContact(it)
+                selectedContact = null
+            }
+        },
+        {
+            scope.launch {
+                contactsRepo.deleteContact(it)
+                selectedContact = null
+            }
+        },
+        { selectedContact = it }
+    )
+}
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContactScreenLayout(
+    contacts: List<Contact>,
+    selectedContact: Contact?,
+    onSave: (Contact) -> Unit,
+    onDelete: (ObjectId) -> Unit,
+    onSelect: (Contact) -> Unit
+) {
 
-        Text(
-            modifier = Modifier.padding(bottom = 16.dp),
-            text = "Your Contacts",
-            style = MaterialTheme.typography.displaySmall
-        )
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    onSelect(Contact().apply {
+                        address = Address()
+                        contactMethod = ContactMethod()
+                    })
+                }) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "New Contact")
+            }
 
-        LazyColumn() {
-            items(contacts.value) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp)
-                        .clickable {
-                            selectedContact = it
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = (it.firstName + " " + it.lastName).uppercase())
-                    IconButton(onClick = {
-                        scope.launch {
-                            contactsRepo.deleteContact(it._id)
+            Spacer(modifier = Modifier.height(20.dp))
+
+        }
+    ) { padding ->
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(
+                    top = padding.calculateTopPadding(), start = 16.dp,
+                    end = 16.dp
+                ),
+        ) {
+
+            Text(
+                modifier = Modifier.padding(bottom = 16.dp),
+                text = "Your Contacts",
+                style = MaterialTheme.typography.displaySmall
+            )
+
+            LazyColumn() {
+                items(contacts) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp)
+                            .clickable {
+                                onSelect(it)
+                            },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = (it.firstName + " " + it.lastName).uppercase())
+                        IconButton(onClick = {
+                            onDelete(it._id)
+                        }) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "")
                         }
-                    }) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "")
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-        ContactFields(
-            contact = selectedContact,
-            onValueChanged = {
-                Log.d("test", "onValueChangedCalled: ${it.firstName}")
-                selectedContact = it
-            }
-        ) {
-            scope.launch {
-                contactsRepo.saveContact(selectedContact)
+            if (selectedContact != null) {
+                ContactFields(
+                    contact = selectedContact,
+                    onValueChanged = {
+                        onSelect(it)
+                    },
+                    onSave
+                )
             }
         }
     }
@@ -123,10 +171,9 @@ fun ContactScreen() {
 fun ContactFields(
     contact: Contact,
     onValueChanged: (Contact) -> Unit,
-    onSave: () -> Unit
+    onSave: (Contact) -> Unit
 ) {
 
-    // this is life with no viewmodel or dataclass.copy!!
     val updatableContact = Contact().apply {
         _id = contact._id
         address = Address().apply {
@@ -140,8 +187,11 @@ fun ContactFields(
         lastName = contact.lastName
     }
 
-    Column {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
         OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
             value = contact.firstName,
             onValueChange = {
                 updatableContact.firstName = it
@@ -151,6 +201,7 @@ fun ContactFields(
         )
         Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
             value = contact.lastName,
             onValueChange = {
                 updatableContact.lastName = it
@@ -160,6 +211,7 @@ fun ContactFields(
         )
         Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
             value = contact.address?.cityName ?: "",
             onValueChange = {
                 updatableContact.address?.cityName = it
@@ -168,26 +220,31 @@ fun ContactFields(
             placeholder = { Text(text = "City") }
         )
         Spacer(modifier = Modifier.height(6.dp))
-        Divider(modifier = Modifier.fillMaxWidth(), thickness = 2.dp, color = Color.Black)
-        Spacer(modifier = Modifier.height(6.dp))
-
-
-        OutlinedTextField(
-            value = contact.contactMethod?.methodValue ?: "",
-            onValueChange = {
-                updatableContact.contactMethod?.methodValue = it
-                onValueChanged(updatableContact)
-            },
-            placeholder = { Text(text = "Email or Phone") }
+        Text(
+            modifier = Modifier
+                .padding(vertical = 6.dp)
+                .fillMaxWidth(),
+            text = "Contact Method",
+            style = MaterialTheme.typography.titleLarge
         )
-        Spacer(modifier = Modifier.height(6.dp))
 
         ContactMethodFields(contact, onValueChanged, updatableContact)
 
         Spacer(modifier = Modifier.height(6.dp))
-        Button(onClick = {
-            onSave()
-        }) {
+
+        val lastModified = SimpleDateFormat("MM/dd/yy hh:mm a", Locale.getDefault())
+            .format(Date(contact.timestamp.epochSeconds * 1000)).uppercase()
+
+        Text(text = "Last Modified: $lastModified",
+            style = MaterialTheme.typography.labelMedium)
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                onSave(updatableContact)
+            }) {
             Text(text = "Insert or Update")
         }
     }
@@ -211,7 +268,8 @@ private fun ContactMethodFields(
 
         OutlinedTextField(
             modifier = Modifier
-                .menuAnchor(),
+                .menuAnchor()
+                .fillMaxWidth(),
             value = contact.contactMethod?.methodType?.name ?: ContactType.EMAIL.name,
             onValueChange = {
                 onValueChanged(updatableContact)
@@ -239,20 +297,43 @@ private fun ContactMethodFields(
             }
         }
     }
+    Spacer(modifier = Modifier.height(6.dp))
+    OutlinedTextField(
+        modifier = Modifier.fillMaxWidth(),
+        value = contact.contactMethod?.methodValue ?: "",
+        onValueChange = {
+            updatableContact.contactMethod?.methodValue = it
+            onValueChanged(updatableContact)
+        },
+        placeholder = { Text(text = "Email or Phone") }
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+
 }
 
 @Preview(showSystemUi = true)
 @Composable
 fun PreviewInsertContact() {
 
-    val newContact by remember {
-        mutableStateOf(
-            Contact().apply {
-                address = Address()
-                contactMethod = ContactMethod()
-            }
-        )
-    }
-
-    ContactFields(newContact, {}, {})
+    ContactScreenLayout(contacts = listOf(
+        Contact().apply {
+            firstName = "Sarah"
+            lastName = "Brenner"
+            address = Address()
+            contactMethod = ContactMethod()
+        },
+        Contact().apply {
+            firstName = "Second"
+            lastName = "Contact"
+            address = Address()
+            contactMethod = ContactMethod()
+        }
+    ),
+        Contact().apply {
+            firstName = "Sarah"
+            lastName = "Brenner"
+            address = Address()
+            contactMethod = ContactMethod()
+        },
+        onSave = {}, onDelete = {}, onSelect = {})
 }
