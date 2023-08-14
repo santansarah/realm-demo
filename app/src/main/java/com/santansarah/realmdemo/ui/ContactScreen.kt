@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,12 +55,11 @@ import java.util.Locale
 import kotlin.reflect.KSuspendFunction1
 
 @Composable
-fun ContactScreen() {
+fun ContactScreen(
+    viewModel: ContactsViewModel
+) {
 
-    val contactsRepo = ContactRepository(provideRealm())
-    val contacts = contactsRepo.getContacts()
-        .collectAsState(initial = contactsRepo.fetchInitialList())
-
+    val contacts by viewModel.data
     val scope = rememberCoroutineScope()
 
     var selectedContact: Contact? by remember {
@@ -68,24 +68,23 @@ fun ContactScreen() {
         )
     }
 
-    Log.d("test", "$selectedContact")
-
     ContactScreenLayout(
-        contacts.value,
+        contacts,
         selectedContact,
         {
             scope.launch {
-                contactsRepo.saveContact(it)
+                ContactRepository.saveContact(it)
                 selectedContact = null
             }
         },
         {
             scope.launch {
-                contactsRepo.deleteContact(it)
+                ContactRepository.deleteContact(it)
                 selectedContact = null
             }
         },
-        { selectedContact = it }
+        { selectedContact = it },
+        { selectedContact = null }
     )
 }
 
@@ -96,10 +95,9 @@ private fun ContactScreenLayout(
     selectedContact: Contact?,
     onSave: (Contact) -> Unit,
     onDelete: (ObjectId) -> Unit,
-    onSelect: (Contact) -> Unit
+    onSelect: (Contact) -> Unit,
+    onCancel: () -> Unit
 ) {
-
-    Log.d("test", "$selectedContact")
 
     Scaffold(
         floatingActionButton = {
@@ -158,13 +156,13 @@ private fun ContactScreenLayout(
             Spacer(modifier = Modifier.height(20.dp))
 
             if (selectedContact != null) {
-                Log.d("test", "$selectedContact")
                 ContactFields(
                     contact = selectedContact,
                     onValueChanged = {
                         onSelect(it)
                     },
-                    onSave
+                    onSave,
+                    onCancel
                 )
             }
         }
@@ -176,7 +174,8 @@ private fun ContactScreenLayout(
 fun ContactFields(
     contact: Contact,
     onValueChanged: (Contact) -> Unit,
-    onSave: (Contact) -> Unit
+    onSave: (Contact) -> Unit,
+    onCancel: () -> Unit
 ) {
 
     val updatableContact =
@@ -254,6 +253,16 @@ fun ContactFields(
                 onSave(updatableContact)
             }) {
             Text(text = "Insert or Update")
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                onCancel()
+            }) {
+            Text(text = "Cancel")
         }
     }
 }
@@ -343,5 +352,5 @@ fun PreviewInsertContact() {
             address = Address()
             contactMethod = ContactMethod()
         },
-        onSave = {}, onDelete = {}, onSelect = {})
+        onSave = {}, onDelete = {}, onSelect = {}, onCancel = {})
 }

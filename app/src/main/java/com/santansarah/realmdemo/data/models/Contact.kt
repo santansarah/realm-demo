@@ -28,6 +28,8 @@ class Address(): RealmObject {
 }
 
 class ContactMethod: RealmObject {
+    @PrimaryKey
+    var _id: ObjectId = ObjectId()
     var methodValue: String = ""
     var methodType: ContactType // this is not persisted in Realm; no backing field or ignore
         get() { return ContactType.valueOf(methodTypeDesc) }
