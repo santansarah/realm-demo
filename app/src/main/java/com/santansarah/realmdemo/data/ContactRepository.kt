@@ -31,7 +31,6 @@ object ContactRepository {
     }
 
     suspend fun saveContact(contact: Contact) {
-        Log.d("test", "saving....")
         try {
             realm.write {
                 copyToRealm(contact, UpdatePolicy.ALL)
