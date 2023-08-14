@@ -17,7 +17,6 @@ class Contact(): RealmObject {
     var address: Address? = null
     var contactMethod: ContactMethod? = null
     var timestamp: RealmInstant = RealmInstant.now()
-
 }
 
 class Address(): RealmObject {
